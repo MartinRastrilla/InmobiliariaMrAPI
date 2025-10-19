@@ -15,8 +15,8 @@ public class Role
     public string Description { get; set; } = null!;
 
     [Required]
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     //? Navigation Properties
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();

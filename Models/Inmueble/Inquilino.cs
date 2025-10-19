@@ -24,8 +24,8 @@ public class Inquilino
     public string? Email { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     //? Navigation Properties
     public ICollection<Contrato> Contratos { get; set; } = new List<Contrato>();

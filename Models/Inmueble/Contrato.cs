@@ -9,8 +9,8 @@ public class Contrato
     public decimal TotalPrice { get; set; }
     public decimal? MonthlyPrice { get; set; }
     public ContratoStatus Status { get; set; } = ContratoStatus.Pending;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     //? Navigation Properties
     public int InmuebleId { get; set; }

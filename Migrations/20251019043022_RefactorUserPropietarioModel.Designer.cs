@@ -4,6 +4,7 @@ using InmobiliariaMrAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InmobiliariaMrAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251019043022_RefactorUserPropietarioModel")]
+    partial class RefactorUserPropietarioModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -271,15 +274,10 @@ namespace InmobiliariaMrAPI.Migrations
                         .HasMaxLength(15)
                         .HasColumnType("varchar(15)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentNumber")
                         .IsUnique();
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Propietarios");
                 });
@@ -347,6 +345,9 @@ namespace InmobiliariaMrAPI.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
 
+                    b.Property<int?>("PropietarioId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -354,6 +355,8 @@ namespace InmobiliariaMrAPI.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("PropietarioId");
 
                     b.ToTable("Users");
                 });
@@ -454,15 +457,13 @@ namespace InmobiliariaMrAPI.Migrations
                     b.Navigation("Inquilino");
                 });
 
-            modelBuilder.Entity("InmobiliariaMrAPI.Models.Inmueble.Propietario", b =>
+            modelBuilder.Entity("InmobiliariaMrAPI.Models.User.User", b =>
                 {
-                    b.HasOne("InmobiliariaMrAPI.Models.User.User", "User")
+                    b.HasOne("InmobiliariaMrAPI.Models.Inmueble.Propietario", "Propietario")
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("PropietarioId");
 
-                    b.Navigation("User");
+                    b.Navigation("Propietario");
                 });
 
             modelBuilder.Entity("InmobiliariaMrAPI.Models.User.UserRole", b =>

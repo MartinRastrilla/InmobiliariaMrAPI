@@ -14,6 +14,12 @@ public class Inmueble
     [MaxLength(200)]
     public string Address { get; set; } = null!;
 
+    [MaxLength(100)]
+    public string? Latitude { get; set; }
+
+    [MaxLength(100)]
+    public string? Longitude { get; set; }
+
     [Required]
     public int Rooms { get; set; }
 
@@ -22,8 +28,8 @@ public class Inmueble
     
     public int? MaxGuests { get; set; }
     public bool Available { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     //? Navigation Properties
     public int PropietarioId { get; set; }

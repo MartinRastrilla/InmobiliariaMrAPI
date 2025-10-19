@@ -10,8 +10,8 @@ public class Pagos
     public decimal Amount { get; set; }
     public DateTime PaymentDate { get; set; }
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public enum PaymentMethod

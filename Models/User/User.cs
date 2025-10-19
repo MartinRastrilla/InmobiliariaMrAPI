@@ -12,6 +12,10 @@ public class User
     public string Name { get; set; } = null!;
 
     [Required]
+    [MaxLength(100)]
+    public string LastName { get; set; } = null!;
+
+    [Required]
     [EmailAddress]
     [MaxLength(100)]
     public string Email { get; set; } = null!;
@@ -20,11 +24,9 @@ public class User
     [MaxLength(300)]
     public string Password { get; set; } = null!;
     public bool IsActive { get; set; } = true;
-    public DateTime UpdatedAt { get; set; } = DateTime.Now;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     //? Navigation Properties
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-    public int? PropietarioId { get; set; }
-    public Propietario? Propietario { get; set; }
 }

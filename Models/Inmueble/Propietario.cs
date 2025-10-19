@@ -5,6 +5,8 @@ namespace InmobiliariaMrAPI.Models.Inmueble;
 public class Propietario
 {
     public int Id { get; set; }
+    public int UserId { get; set; }
+    public User.User User { get; set; } = null!;
 
     [Required]
     [MaxLength(100)]
