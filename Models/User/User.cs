@@ -24,6 +24,8 @@ public class User
     [MaxLength(300)]
     public string Password { get; set; } = null!;
     public bool IsActive { get; set; } = true;
+
+    public string? ProfilePicRoute { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

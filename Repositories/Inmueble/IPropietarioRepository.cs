@@ -9,4 +9,5 @@ public interface IPropietarioRepository
     Task<bool> DeletePropietario(int id);
     Task<Propietario> GetPropietarioById(int id);
     Task<IEnumerable<Propietario>> GetAllPropietarios();
+    Task<Propietario> GetPropietarioByUserId(int userId);
 }

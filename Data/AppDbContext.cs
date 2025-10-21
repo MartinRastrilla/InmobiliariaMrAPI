@@ -1,3 +1,4 @@
+using InmobiliariaMrAPI.Models;
 using InmobiliariaMrAPI.Models.Inmueble;
 using InmobiliariaMrAPI.Models.User;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<Pagos> Pagos { get; set; }
     public DbSet<Inquilino> Inquilinos { get; set; }
     public DbSet<ContratoInquilino> ContratoInquilinos { get; set; }
+    public DbSet<Archivo> Archivos { get; set; }
+    public DbSet<ArchivoInmueble> ArchivoInmuebles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,5 +46,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ContratoInquilino>()
             .HasIndex(ci => new { ci.ContratoId, ci.InquilinoId })
             .IsUnique();
+
+        modelBuilder.Entity<ArchivoInmueble>()
+            .HasOne(ai => ai.Inmueble)
+            .WithMany(i => i.ArchivoInmuebles)
+            .HasForeignKey(ai => ai.InmuebleId);
+
+        modelBuilder.Entity<ArchivoInmueble>()
+            .HasOne(ai => ai.Archivo)
+            .WithMany(a => a.ArchivoInmuebles)
+            .HasForeignKey(ai => ai.ArchivoId);
     }
 }

@@ -5,8 +5,11 @@ public class UserDto
     public string Name { get; set; } = null!;
     public string LastName { get; set; } = null!;
     public string Email { get; set; } = null!;
-    public string Password { get; set; } = null!;
+    public string? Password { get; set; }
+    public string? ProfilePicRoute { get; set; }
     public List<string> Roles { get; set; } = new List<string>();
+    public string? Phone { get; set; }
+    public string? DocumentNumber { get; set; }
 }
 
 public class UserRegisterDto

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using InmobiliariaMrAPI.Common;
 using InmobiliariaMrAPI.DTOs;
 using InmobiliariaMrAPI.Models.Inmueble;
 using InmobiliariaMrAPI.Models.User;
@@ -70,45 +71,48 @@ public class AuthService : IAuthService
     }
 
 
-    public async Task<string> Login(string email, string password)
+    public async Task<Result<string>> Login(string email, string password)
     {
         var user = await _userRepository.GetUserByEmail(email);
         if (user == null)
         {
-            throw new Exception("User not found");
+            return Result<string>.Fail("Usuario no encontrado");
         }
 
         if (!IsPasswordValid(password, user.Password))
         {
-            throw new Exception("Invalid password");
+            return Result<string>.Fail("Contraseña incorrecta");
         }
 
         var roles = await _roleRepository.GetRolesByUserId(user.Id);
         if (!roles.Any())
         {
-            throw new Exception("No roles found");
+            return Result<string>.Fail("El usuario no tiene roles asignados");
         }
+        
         var token = GenerateJwtToken(user, roles.Select(r => r.Name).ToList());
-        return token;
+        return Result<string>.Ok(token);
     }
 
-    public async Task<string> Register(UserRegisterDto userDto)
+    public async Task<Result<string>> Register(UserRegisterDto userDto)
     {
         //? Validar que los roles existan
         if (!await ValidateRoles(userDto.Roles))
         {
-            throw new Exception("Invalid roles");
+            return Result<string>.Fail("Roles inválidos");
         }
+        
         //? Validar que el email no esté en uso
         if (await IsEmailValid(userDto.Email))
         {
-            throw new Exception("Email already in use");
+            return Result<string>.Fail("El email ya está en uso");
         }
+        
         //? Validar que la contraseña tenga al menos 8 caracteres
         var validation = ValidatePassword(userDto.Password);
         if (validation != "Password is valid")
         {
-            throw new Exception(validation);
+            return Result<string>.Fail(validation);
         }
 
         //? Crear el usuario
@@ -120,11 +124,12 @@ public class AuthService : IAuthService
             Password = HashPassword(userDto.Password),
         };
         user = await _userRepository.CreateUser(user);
+        
         //? Agregar roles al usuario
         if (!await _roleRepository.AddRolesToUser(user.Id, userDto.Roles))
         {
             await _userRepository.DeleteUser(user.Id);
-            throw new Exception("Error adding roles to user");
+            return Result<string>.Fail("Error al asignar roles al usuario");
         }
 
         //? Validar que el usuario tenga el rol de Propietario
@@ -141,7 +146,8 @@ public class AuthService : IAuthService
             };
             await _propietarioRepository.CreatePropietario(userPropietario);
         }
-        return user.Id.ToString();
+        
+        return Result<string>.Ok(user.Id.ToString());
     }
 
     public string ValidatePassword(string password)

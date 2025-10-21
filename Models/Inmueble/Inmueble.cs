@@ -35,4 +35,5 @@ public class Inmueble
     public int PropietarioId { get; set; }
     public Propietario Propietario { get; set; } = null!;
     public ICollection<Contrato> Contratos { get; set; } = new List<Contrato>();
+    public ICollection<ArchivoInmueble> ArchivoInmuebles { get; set; } = new List<ArchivoInmueble>();
 }

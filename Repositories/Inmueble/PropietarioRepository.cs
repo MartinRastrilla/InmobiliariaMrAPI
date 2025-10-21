@@ -22,6 +22,11 @@ public class PropietarioRepository : IPropietarioRepository
     {
         return await _context.Propietarios.FindAsync(id) ?? throw new Exception("Propietario not found");
     }
+
+    public async Task<Propietario> GetPropietarioByUserId(int userId)
+    {
+        return await _context.Propietarios.FirstOrDefaultAsync(p => p.UserId == userId) ?? throw new Exception("Propietario not found");
+    }
     
     public async Task<Propietario> CreatePropietario(Propietario propietario)
     {
