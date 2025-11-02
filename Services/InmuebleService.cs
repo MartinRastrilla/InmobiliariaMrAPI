@@ -19,35 +19,64 @@ public class InmuebleService : IInmuebleService
         _userRepository = userRepository;
     }
 
-    public async Task<IEnumerable<InmuebleDto>> GetAllInmuebles()
+    public async Task<Result<IEnumerable<InmuebleDto>>> GetAllInmueblesByUserId(int userId)
     {
-        var inmuebles = await _inmuebleRepository.GetAllInmuebles();
-        return inmuebles.Select(i => MapInmuebleToDto(i)).ToList() ?? throw new Exception("No inmuebles found");
+        var propietario = await GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<IEnumerable<InmuebleDto>>.Fail("Propietario no encontrado");
+        }
+        var inmuebles = await _inmuebleRepository.GetInmueblesByPropietarioId(propietario.Id);
+        if (inmuebles == null || !inmuebles.Any())
+        {
+            return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
+        }
+        var inmueblesDto = inmuebles.Select(i => MapInmuebleToDto(i)).ToList();
+        return Result<IEnumerable<InmuebleDto>>.Ok(inmueblesDto);
     }
 
-    public async Task<Result<InmuebleDto>> GetInmuebleById(int id)
+    public async Task<Result<InmuebleDto>> GetInmuebleById(int id, int userId)
     {
+        var propietario = await GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<InmuebleDto>.Fail("Propietario no encontrado");
+        }
         var inmueble = await _inmuebleRepository.GetInmuebleById(id);
         if (inmueble == null)
         {
             return Result<InmuebleDto>.Fail("Inmueble no encontrado");
         }
+        if (propietario.Id != inmueble.PropietarioId)
+        {
+            return Result<InmuebleDto>.Fail("No tienes permisos para ver este inmueble");
+        }
         return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
     }
 
-    public async Task<Result<InmuebleDto>> GetInmuebleByTitle(string title)
+    public async Task<Result<InmuebleDto>> GetInmuebleByTitle(string title, int userId)
     {
+        var propietario = await GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<InmuebleDto>.Fail("Propietario no encontrado");
+        }
         var inmueble = await _inmuebleRepository.GetInmuebleByTitle(title);
         if (inmueble == null)
         {
             return Result<InmuebleDto>.Fail("Inmueble no encontrado");
+        }
+
+        if (propietario.Id != inmueble.PropietarioId)
+        {
+            return Result<InmuebleDto>.Fail("No tienes permisos para ver este inmueble");
         }
         return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
     }
 
     public async Task<InmuebleDto?> CreateInmueble(InmuebleDto inmuebleDto, int propietarioId)
     {
-        var propietario = await GetPropietarioById(propietarioId);
+        var propietario = await GetPropietarioByUserId(propietarioId);
         if (propietario == null)
         {
             return null;
@@ -72,7 +101,7 @@ public class InmuebleService : IInmuebleService
 
     public async Task<bool> UpdateInmueble(InmuebleDto inmuebleDto, int propietarioId)
     {
-        var propietario = await GetPropietarioById(propietarioId);
+        var propietario = await GetPropietarioByUserId(propietarioId);
         if (propietario == null)
         {
             return false;
@@ -188,24 +217,46 @@ public class InmuebleService : IInmuebleService
         return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
     }
 
-    public async Task<IEnumerable<InmuebleDto>> GetInmueblesByPropietarioId(int propietarioId)
+    public async Task<Result<IEnumerable<InmuebleDto>>> GetInmueblesByPropietarioId(int propietarioId)
     {
         var inmuebles = await _inmuebleRepository.GetInmueblesByPropietarioId(propietarioId);
-        return inmuebles.Select(i => MapInmuebleToDto(i)).ToList() ?? throw new Exception("No inmuebles found for propietario");
+        if (inmuebles == null)
+        {
+            return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
+        }
+        var inmueblesDto = inmuebles.Select(i => MapInmuebleToDto(i)).ToList();
+        if (inmueblesDto.Count == 0)
+        {
+            return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
+        }
+        return Result<IEnumerable<InmuebleDto>>.Ok(inmueblesDto);
     }
 
-    public async Task<InmuebleDto?> GetInmuebleByTitleForPropietario(string title, int propietarioId)
+    public async Task<Result<bool>> DisableAndEnableInmuebleForUser(int id, int userId)
     {
-        var inmueble = await _inmuebleRepository.GetInmuebleByTitleForPropietario(title, propietarioId);
-        return MapInmuebleToDto(inmueble);
-    }
-
-    public async Task<bool> IsInmuebleAvailable(int id)
-    {
+        var propietario = await GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<bool>.Fail("Propietario no encontrado");
+        }
         var inmueble = await _inmuebleRepository.GetInmuebleById(id);
-        return inmueble.Available;
-    }
+        if (inmueble == null)
+        {
+            return Result<bool>.Fail("Inmueble no encontrado");
+        }
 
+        if (inmueble.PropietarioId != propietario.Id)
+        {
+            return Result<bool>.Fail("No tienes permisos para habilitar este inmueble");
+        }
+        inmueble.Available = !inmueble.Available;
+        var updated = await _inmuebleRepository.UpdateInmueble(inmueble);
+        if (!updated)
+        {
+            return Result<bool>.Fail("Error al actualizar el inmueble");
+        }
+        return Result<bool>.Ok(updated);
+    }
     private static InmuebleDto MapInmuebleToDto(Inmueble inmueble)
     {
         return new InmuebleDto
@@ -224,9 +275,9 @@ public class InmuebleService : IInmuebleService
         };
     }
 
-    private async Task<Propietario?> GetPropietarioById(int propietarioId)
+    private async Task<Propietario?> GetPropietarioByUserId(int userId)
     {
-        var propietario = await _propietarioRepository.GetPropietarioById(propietarioId);
+        var propietario = await _propietarioRepository.GetPropietarioByUserId(userId);
         if (propietario == null)
         {
             return null;

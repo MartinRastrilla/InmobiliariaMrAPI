@@ -13,22 +13,22 @@ public class PropietarioRepository : IPropietarioRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Propietario>> GetAllPropietarios()
+    public async Task<IEnumerable<Propietario>?> GetAllPropietarios()
     {
-        return await _context.Propietarios.ToListAsync() ?? throw new Exception("No propietarios found");
+        return await _context.Propietarios.ToListAsync();
     }
 
-    public async Task<Propietario> GetPropietarioById(int id)
+    public async Task<Propietario?> GetPropietarioById(int id)
     {
-        return await _context.Propietarios.FindAsync(id) ?? throw new Exception("Propietario not found");
+        return await _context.Propietarios.FindAsync(id);
     }
 
-    public async Task<Propietario> GetPropietarioByUserId(int userId)
+    public async Task<Propietario?> GetPropietarioByUserId(int userId)
     {
-        return await _context.Propietarios.FirstOrDefaultAsync(p => p.UserId == userId) ?? throw new Exception("Propietario not found");
+        return await _context.Propietarios.FirstOrDefaultAsync(p => p.UserId == userId);
     }
     
-    public async Task<Propietario> CreatePropietario(Propietario propietario)
+    public async Task<Propietario?> CreatePropietario(Propietario propietario)
     {
         _context.Propietarios.Add(propietario);
         await _context.SaveChangesAsync();
@@ -45,6 +45,10 @@ public class PropietarioRepository : IPropietarioRepository
     public async Task<bool> DeletePropietario(int id)
     {
         var propietario = await GetPropietarioById(id);
+        if (propietario == null)
+        {
+            return false;
+        }
         _context.Propietarios.Remove(propietario);
         await _context.SaveChangesAsync();
         return true;

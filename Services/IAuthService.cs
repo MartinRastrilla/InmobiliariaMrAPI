@@ -8,4 +8,5 @@ public interface IAuthService
 {
     Task<Result<string>> Login(string email, string password);
     Task<Result<string>> Register(UserRegisterDto user);
+    string ValidatePassword(string password);
 }

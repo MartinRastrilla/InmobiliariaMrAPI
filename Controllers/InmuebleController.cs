@@ -19,17 +19,37 @@ public class InmuebleController : ControllerBase
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> GetAllInmuebles()
+    public async Task<IActionResult> GetAllInmueblesByUserId()
     {
-        var inmuebles = await _inmuebleService.GetAllInmuebles();
-        return Ok(inmuebles);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null)
+        {
+            return Unauthorized(new { Message = "Token inválido" });
+        }
+
+        int userId = int.Parse(userIdClaim);
+        var result = await _inmuebleService.GetAllInmueblesByUserId(userId);
+        
+        if (!result.Success)
+        {
+            return NotFound(new { Message = result.ErrorMessage });
+        }
+        
+        return Ok(result.Data);
     }
 
     [HttpGet("{id}")]
     [Authorize]
     public async Task<IActionResult> GetInmuebleById(int id)
     {
-        var result = await _inmuebleService.GetInmuebleById(id);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null)
+        {
+            return Unauthorized(new { Message = "Token inválido" });
+        }
+
+        int userId = int.Parse(userIdClaim);
+        var result = await _inmuebleService.GetInmuebleById(id, userId);
         
         if (!result.Success)
         {
@@ -43,7 +63,14 @@ public class InmuebleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetInmuebleByTitle(string title)
     {
-        var result = await _inmuebleService.GetInmuebleByTitle(title);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null)
+        {
+            return Unauthorized(new { Message = "Token inválido" });
+        }
+
+        int userId = int.Parse(userIdClaim);
+        var result = await _inmuebleService.GetInmuebleByTitle(title, userId);
         
         if (!result.Success)
         {
@@ -112,5 +139,26 @@ public class InmuebleController : ControllerBase
         }
 
         return Ok(new { Message = "Inmueble eliminado correctamente" });
+    }
+
+    [HttpPut("disable-enable/{id}")]
+    [Authorize]
+    public async Task<IActionResult> DisableAndEnableInmueble(int id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null)
+        {
+            return Unauthorized(new { Message = "Token inválido" });
+        }
+
+        int userId = int.Parse(userIdClaim);
+        var result = await _inmuebleService.DisableAndEnableInmuebleForUser(id, userId);
+        
+        if (!result.Success)
+        {
+            return BadRequest(new { Message = result.ErrorMessage });
+        }
+
+        return Ok(new { Message = "Inmueble actualizado correctamente", Data = result.Data });
     }
 }

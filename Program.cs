@@ -33,6 +33,13 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API para gestión de inmobiliaria"
     });
 
+    // Agregar soporte para archivos
+    options.MapType<IFormFile>(() => new OpenApiSchema
+    {
+        Type = "string",
+        Format = "binary"
+    });
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -76,10 +83,19 @@ builder.Services.AddAuthentication("Bearer")
         }
     );
 
+//? Add Authorization based on roles
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("Propietario", policy => policy.RequireRole("Propietario"));
+    options.AddPolicy("Operador", policy => policy.RequireRole("Operador"));
+});
+
 //? Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IInmuebleService, InmuebleService>();
+builder.Services.AddScoped<IFileService, FileService>();
 //? Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
@@ -104,6 +120,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");

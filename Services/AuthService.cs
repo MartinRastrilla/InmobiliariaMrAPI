@@ -122,6 +122,7 @@ public class AuthService : IAuthService
             LastName = userDto.LastName,
             Email = userDto.Email,
             Password = HashPassword(userDto.Password),
+            ProfilePicRoute = $"https://ui-avatars.com/api/?name={userDto.Name}+{userDto.LastName}&background=8E02AA&color=fff&size=256"
         };
         user = await _userRepository.CreateUser(user);
         

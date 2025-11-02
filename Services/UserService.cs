@@ -10,12 +10,13 @@ public class UserService : IUserService
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPropietarioRepository _propietarioRepository;
-
-    public UserService(IUserRepository userRepository, IRoleRepository roleRepository, IPropietarioRepository propietarioRepository)
+    private readonly IFileService _fileService;
+    public UserService(IUserRepository userRepository, IRoleRepository roleRepository, IPropietarioRepository propietarioRepository, IFileService fileService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _propietarioRepository = propietarioRepository;
+        _fileService = fileService;
     }
 
     public async Task<IEnumerable<Models.User.User>> GetAllUsers()
@@ -70,18 +71,36 @@ public class UserService : IUserService
         return await _userRepository.CreateUser(user);
     }
 
-    public async Task<Result<UserDto>> UpdateLoggedUser(int userId, UserDto userDto)
+    public async Task<Result<UserDto>> UpdateLoggedUser(int userId, UserDto userDto, IFormFile? profilePic = null)
     {
         var user = await _userRepository.GetUserById(userId);
         if (user == null)
         {
             return Result<UserDto>.Fail("Usuario no encontrado");
         }
+
+        // Si hay nueva imagen, guardarla
+        if (profilePic != null)
+        {
+            // Eliminar imagen anterior si existe
+            if (!string.IsNullOrEmpty(user.ProfilePicRoute) && !user.ProfilePicRoute.StartsWith("http"))
+            {
+                _fileService.DeleteFile(user.ProfilePicRoute);
+            }
+
+            try
+            {
+                user.ProfilePicRoute = await _fileService.SaveFileAsync(profilePic, "uploads/profiles");
+            }
+            catch (Exception ex)
+            {
+                return Result<UserDto>.Fail(ex.Message);
+            }
+        }
         
         //? Actualizar user
         user.Name = userDto.Name ?? user.Name;
         user.LastName = userDto.LastName ?? user.LastName;
-        user.ProfilePicRoute = userDto.ProfilePicRoute ?? "https://ui-avatars.com/api/?name=" + user.Name + "+" + user.LastName;
         user.UpdatedAt = DateTime.UtcNow;
 
         //? Actualizar propietario si tiene ese rol
@@ -124,5 +143,46 @@ public class UserService : IUserService
         }
         
         return Result<bool>.Ok(true);
+    }
+
+    public async Task<Result<UserDto>> UpdatePassword(int userId, UserUpdatePasswordDto userUpdatePasswordDto)
+    {
+        var user = await _userRepository.GetUserById(userId);
+        if (user == null)
+        {
+            return Result<UserDto>.Fail("Usuario no encontrado");
+        }
+
+        //? Validar que las contraseñas sean iguales
+        if (userUpdatePasswordDto.NewPassword != userUpdatePasswordDto.ConfirmPassword)
+        {
+            return Result<UserDto>.Fail("Las contraseñas no coinciden");
+        }
+
+        //? Validar que la current password sea correcta
+        if (!BCrypt.Net.BCrypt.Verify(userUpdatePasswordDto.CurrentPassword, user.Password))
+        {
+            return Result<UserDto>.Fail("Contraseña actual incorrecta");
+        }
+
+        //? Obtener usuario actual
+        var userCurrent = await _userRepository.GetUserById(userId);
+        if (userCurrent == null)
+        {
+            return Result<UserDto>.Fail("Usuario no encontrado");
+        }
+
+        //? Validar que la contraseña actual sea correcta
+        if (!BCrypt.Net.BCrypt.Verify(userUpdatePasswordDto.CurrentPassword, userCurrent.Password))
+        {
+            return Result<UserDto>.Fail("Contraseña actual incorrecta");
+        }
+
+        //? Actualizar contraseña
+        userCurrent.Password = BCrypt.Net.BCrypt.HashPassword(userUpdatePasswordDto.NewPassword);
+        await _userRepository.UpdateUser(userCurrent);
+
+        var userUpdatedResult = await GetUserById(userId);
+        return userUpdatedResult;
     }
 }
