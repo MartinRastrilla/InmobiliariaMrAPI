@@ -101,6 +101,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPropietarioRepository, PropietarioRepository>();
 builder.Services.AddScoped<IInmuebleRepository, InmuebleRepository>();
+builder.Services.AddScoped<IArchivoRepository, ArchivoRepository>();
 
 //? DB - MySQL
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");

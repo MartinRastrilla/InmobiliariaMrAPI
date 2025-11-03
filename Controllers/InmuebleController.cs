@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using InmobiliariaMrAPI.DTOs;
 using InmobiliariaMrAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -82,7 +83,8 @@ public class InmuebleController : ControllerBase
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> CreateInmueble([FromBody] InmuebleDto inmuebleDto)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> CreateInmueble([FromForm] InmuebleDto inmuebleDto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null)

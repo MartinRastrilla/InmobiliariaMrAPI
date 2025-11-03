@@ -1,5 +1,7 @@
+using System.Text.Json;
 using InmobiliariaMrAPI.Common;
 using InmobiliariaMrAPI.DTOs;
+using InmobiliariaMrAPI.Models;
 using InmobiliariaMrAPI.Models.Inmueble;
 using InmobiliariaMrAPI.Repositories;
 using InmobiliariaMrAPI.Repositories.User;
@@ -11,12 +13,15 @@ public class InmuebleService : IInmuebleService
     private readonly IInmuebleRepository _inmuebleRepository;
     private readonly IPropietarioRepository _propietarioRepository;
     private readonly IUserRepository _userRepository;
-
-    public InmuebleService(IInmuebleRepository inmuebleRepository, IPropietarioRepository propietarioRepository, IUserRepository userRepository)
+    private readonly IArchivoRepository _archivoRepository;
+    private readonly IFileService _fileService;
+    public InmuebleService(IInmuebleRepository inmuebleRepository, IPropietarioRepository propietarioRepository, IUserRepository userRepository, IArchivoRepository archivoRepository, IFileService fileService)
     {
         _inmuebleRepository = inmuebleRepository;
         _propietarioRepository = propietarioRepository;
         _userRepository = userRepository;
+        _archivoRepository = archivoRepository;
+        _fileService = fileService;
     }
 
     public async Task<Result<IEnumerable<InmuebleDto>>> GetAllInmueblesByUserId(int userId)
@@ -31,7 +36,11 @@ public class InmuebleService : IInmuebleService
         {
             return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
         }
-        var inmueblesDto = inmuebles.Select(i => MapInmuebleToDto(i)).ToList();
+        var inmueblesDto = new List<InmuebleDto>();
+        foreach (var inmueble in inmuebles)
+        {
+            inmueblesDto.Add(await MapInmuebleToDto(inmueble));
+        }
         return Result<IEnumerable<InmuebleDto>>.Ok(inmueblesDto);
     }
 
@@ -51,7 +60,7 @@ public class InmuebleService : IInmuebleService
         {
             return Result<InmuebleDto>.Fail("No tienes permisos para ver este inmueble");
         }
-        return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
+        return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
 
     public async Task<Result<InmuebleDto>> GetInmuebleByTitle(string title, int userId)
@@ -71,7 +80,7 @@ public class InmuebleService : IInmuebleService
         {
             return Result<InmuebleDto>.Fail("No tienes permisos para ver este inmueble");
         }
-        return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
+        return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
 
     public async Task<InmuebleDto?> CreateInmueble(InmuebleDto inmuebleDto, int propietarioId)
@@ -90,13 +99,40 @@ public class InmuebleService : IInmuebleService
             Rooms = inmuebleDto.Rooms,
             Price = inmuebleDto.Price,
             MaxGuests = inmuebleDto.MaxGuests,
-            Available = inmuebleDto.Available,
+            Available = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             PropietarioId = propietario.Id,
         };
+
+        if (inmuebleDto.Images != null && inmuebleDto.Images.Count > 0)
+        {
+            foreach (var image in inmuebleDto.Images)
+            {
+                var ruta = await _fileService.SaveFileAsync(image, "inmuebles");
+                if (string.IsNullOrEmpty(ruta))
+                {
+                    return null;
+                }
+
+                string nombre = Path.GetFileNameWithoutExtension(image.FileName);
+
+                var archivo = new Archivo
+                {
+                    Nombre = nombre,
+                    Ruta = ruta,
+                    Fecha = DateTime.UtcNow,
+                };
+                archivo = await _archivoRepository.CreateArchivo(archivo);
+                if (archivo == null)
+                {
+                    return null;
+                }
+                await _inmuebleRepository.LinkArchivoToInmueble(inmueble.Id, archivo.Id);
+            }
+        }
         inmueble = await _inmuebleRepository.CreateInmueble(inmueble);
-        return MapInmuebleToDto(inmueble);
+        return await MapInmuebleToDto(inmueble);
     }
 
     public async Task<bool> UpdateInmueble(InmuebleDto inmuebleDto, int propietarioId)
@@ -175,9 +211,36 @@ public class InmuebleService : IInmuebleService
             UpdatedAt = DateTime.UtcNow,
             PropietarioId = propietario.Id,
         };
-        
         inmueble = await _inmuebleRepository.CreateInmueble(inmueble);
-        return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
+        if (inmueble == null)
+        {
+            return Result<InmuebleDto>.Fail("Error al crear el inmueble");
+        }
+        if (inmuebleDto.Images != null && inmuebleDto.Images.Count > 0)
+        {
+            foreach (var image in inmuebleDto.Images)
+            {
+                var ruta = await _fileService.SaveFileAsync(image, "inmuebles");
+                if (string.IsNullOrEmpty(ruta))
+                {
+                    return Result<InmuebleDto>.Fail("Error al guardar la imagen");
+                }
+                string nombre = Path.GetFileNameWithoutExtension(image.FileName);
+                var archivo = new Archivo
+                {
+                    Nombre = nombre,
+                    Ruta = ruta,
+                    Fecha = DateTime.UtcNow,
+                };
+                archivo = await _archivoRepository.CreateArchivo(archivo);
+                if (archivo == null)
+                {
+                    return Result<InmuebleDto>.Fail("Error al crear el archivo");
+                }
+                await _inmuebleRepository.LinkArchivoToInmueble(inmueble.Id, archivo.Id);
+            }
+        }
+        return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
 
     public async Task<Result<InmuebleDto>> UpdateInmuebleForUser(InmuebleDto inmuebleDto, int userId)
@@ -214,7 +277,7 @@ public class InmuebleService : IInmuebleService
         inmueble.UpdatedAt = DateTime.UtcNow;
         
         await _inmuebleRepository.UpdateInmueble(inmueble);
-        return Result<InmuebleDto>.Ok(MapInmuebleToDto(inmueble));
+        return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
 
     public async Task<Result<IEnumerable<InmuebleDto>>> GetInmueblesByPropietarioId(int propietarioId)
@@ -224,7 +287,11 @@ public class InmuebleService : IInmuebleService
         {
             return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
         }
-        var inmueblesDto = inmuebles.Select(i => MapInmuebleToDto(i)).ToList();
+        var inmueblesDto = new List<InmuebleDto>();
+        foreach (var inmueble in inmuebles)
+        {
+            inmueblesDto.Add(await MapInmuebleToDto(inmueble));
+        }
         if (inmueblesDto.Count == 0)
         {
             return Result<IEnumerable<InmuebleDto>>.Fail("No inmuebles found for propietario");
@@ -257,8 +324,9 @@ public class InmuebleService : IInmuebleService
         }
         return Result<bool>.Ok(updated);
     }
-    private static InmuebleDto MapInmuebleToDto(Inmueble inmueble)
+    private async Task<InmuebleDto> MapInmuebleToDto(Inmueble inmueble)
     {
+        var archivos = await _archivoRepository.GetArchivosByInmuebleId(inmueble.Id);
         return new InmuebleDto
         {
             Id = inmueble.Id,
@@ -272,6 +340,7 @@ public class InmuebleService : IInmuebleService
             Available = inmueble.Available,
             CreatedAt = inmueble.CreatedAt,
             UpdatedAt = inmueble.UpdatedAt,
+            ArchivosRoutes = archivos.Select(a => a.Ruta).ToList(),
         };
     }
 

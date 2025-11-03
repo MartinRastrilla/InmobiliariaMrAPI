@@ -15,9 +15,6 @@ public interface IInmuebleRepository
     //? ================================= MÉTODOS ESPECÍFICOS =================================
     Task<IEnumerable<Inmueble>?> GetInmueblesByPropietarioId(int propietarioId);
     Task<Inmueble?> GetInmuebleByTitleForPropietario(string title, int propietarioId);
-    /* Task<IEnumerable<Inmueble>> GetInmueblesByContratoId(int contratoId);
-    Task<IEnumerable<Inmueble>> GetInmueblesByInquilinoId(int inquilinoId);
-    Task<IEnumerable<Inmueble>> GetInmueblesByArchivoId(int archivoId);
-    Task<IEnumerable<Inmueble>> GetInmueblesByPagosId(int pagosId);
-    Task<IEnumerable<Inmueble>> GetInmueblesByContratoInquilinoId(int contratoInquilinoId); */
+    Task<bool> LinkArchivosToInmueble(int inmuebleId, List<int> archivoIds);
+    Task<bool> LinkArchivoToInmueble(int inmuebleId, int archivoId);
 }
