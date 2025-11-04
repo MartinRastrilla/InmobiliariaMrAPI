@@ -95,6 +95,9 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IInmuebleService, InmuebleService>();
+builder.Services.AddScoped<IContratoService, ContratoService>();
+builder.Services.AddScoped<IInquilinoService, InquilinoService>();
+builder.Services.AddScoped<IPagoService, PagoService>();
 builder.Services.AddScoped<IFileService, FileService>();
 //? Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -102,6 +105,9 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPropietarioRepository, PropietarioRepository>();
 builder.Services.AddScoped<IInmuebleRepository, InmuebleRepository>();
 builder.Services.AddScoped<IArchivoRepository, ArchivoRepository>();
+builder.Services.AddScoped<IContratoRepository, ContratoRepository>();
+builder.Services.AddScoped<IInquilinoRepository, InquilinoRepository>();
+builder.Services.AddScoped<IPagosRepository, PagosRepository>();
 
 //? DB - MySQL
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");

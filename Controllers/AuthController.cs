@@ -18,6 +18,11 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserLoginDto userLoginDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var result = await _authService.Login(userLoginDto.Email, userLoginDto.Password);
         
         if (!result.Success)
@@ -31,6 +36,11 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] UserRegisterDto userDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var result = await _authService.Register(userDto);
         
         if (!result.Success)
@@ -44,6 +54,6 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        return Ok("Logged out successfully");
+        return Ok(new { Message = "Sesión cerrada exitosamente" });
     }
 }

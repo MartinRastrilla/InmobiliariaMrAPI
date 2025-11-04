@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 using InmobiliariaMrAPI.DTOs;
 using InmobiliariaMrAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -18,22 +17,37 @@ public class InmuebleController : ControllerBase
         _inmuebleService = inmuebleService;
     }
 
+    //? Extrae el ID del usuario autenticado desde los claims
+    private int? GetUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+        {
+            return null;
+        }
+        return userId;
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> GetAllInmueblesByUserId()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        var userId = GetUserId();
+        if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.GetAllInmueblesByUserId(userId);
+        var result = await _inmuebleService.GetAllInmueblesByUserId(userId.Value);
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            // Si no hay inmuebles, es válido devolver lista vacía, no un error
+            if (result.ErrorMessage?.Contains("no encontrado") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(result.Data);
@@ -43,18 +57,22 @@ public class InmuebleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetInmuebleById(int id)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        var userId = GetUserId();
+        if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.GetInmuebleById(id, userId);
+        var result = await _inmuebleService.GetInmuebleById(id, userId.Value);
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true || 
+                result.ErrorMessage?.Contains("permisos") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(result.Data);
@@ -64,18 +82,27 @@ public class InmuebleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetInmuebleByTitle(string title)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        if (string.IsNullOrWhiteSpace(title))
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return BadRequest(new { Message = "El título es requerido" });
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.GetInmuebleByTitle(title, userId);
+        var userId = GetUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
+        }
+
+        var result = await _inmuebleService.GetInmuebleByTitle(title, userId.Value);
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true || 
+                result.ErrorMessage?.Contains("permisos") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(result.Data);
@@ -86,14 +113,18 @@ public class InmuebleController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> CreateInmueble([FromForm] InmuebleDto inmuebleDto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        if (!ModelState.IsValid)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return BadRequest(ModelState);
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.CreateInmuebleForUser(inmuebleDto, userId);
+        var userId = GetUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
+        }
+
+        var result = await _inmuebleService.CreateInmuebleForUser(inmuebleDto, userId.Value);
 
         if (!result.Success)
         {
@@ -107,22 +138,31 @@ public class InmuebleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateInmueble(int id, [FromBody] InmuebleDto inmuebleDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         if (id != inmuebleDto.Id)
         {
-            return BadRequest(new { Message = "El ID no coincide" });
+            return BadRequest(new { Message = "El ID de la URL no coincide con el ID del cuerpo de la petición" });
         }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        var userId = GetUserId();
+        if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.UpdateInmuebleForUser(inmuebleDto, userId);
+        var result = await _inmuebleService.UpdateInmuebleForUser(inmuebleDto, userId.Value);
 
         if (!result.Success)
         {
+            if (result.ErrorMessage?.Contains("no encontrado") == true || 
+                result.ErrorMessage?.Contains("permisos") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
             return BadRequest(new { Message = result.ErrorMessage });
         }
 
@@ -137,7 +177,11 @@ public class InmuebleController : ControllerBase
 
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
 
         return Ok(new { Message = "Inmueble eliminado correctamente" });
@@ -147,17 +191,21 @@ public class InmuebleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> DisableAndEnableInmueble(int id)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null)
+        var userId = GetUserId();
+        if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
-        int userId = int.Parse(userIdClaim);
-        var result = await _inmuebleService.DisableAndEnableInmuebleForUser(id, userId);
+        var result = await _inmuebleService.DisableAndEnableInmuebleForUser(id, userId.Value);
         
         if (!result.Success)
         {
+            if (result.ErrorMessage?.Contains("no encontrado") == true || 
+                result.ErrorMessage?.Contains("permisos") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
             return BadRequest(new { Message = result.ErrorMessage });
         }
 

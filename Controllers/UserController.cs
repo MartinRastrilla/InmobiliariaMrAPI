@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using InmobiliariaMrAPI.DTOs;
 using InmobiliariaMrAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -13,23 +11,35 @@ namespace InmobiliariaMrAPI.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
-    private readonly IAuthService _authService;
 
-    public UserController(IUserService userService, IAuthService authService)
+    public UserController(IUserService userService)
     {
         _userService = userService;
-        _authService = authService;
+    }
+
+    //? Extrae el ID del usuario autenticado desde los claims
+    private int? GetUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+        {
+            return null;
+        }
+        return userId;
     }
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAllUsers()
     {
-        var users = await _userService.GetAllUsers();
-
-        //? Serializar para evitar cycles errors
-        var userSerialized = JsonSerializer.Serialize(users, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
-        return Ok(userSerialized);
+        var result = await _userService.GetAllUsers();
+        
+        if (!result.Success)
+        {
+            return BadRequest(new { Message = result.ErrorMessage });
+        }
+        
+        return Ok(result.Data);
     }
     
     [HttpGet("{id}")]
@@ -40,7 +50,11 @@ public class UserController : ControllerBase
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(result.Data);
@@ -50,17 +64,21 @@ public class UserController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetLoggedUser()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = GetUserId();
         if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
         
-        var result = await _userService.GetUserById(int.Parse(userId));
+        var result = await _userService.GetUserById(userId.Value);
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(result.Data);
@@ -71,22 +89,22 @@ public class UserController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UpdateLoggedUser([FromForm] UserDto userDto)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = GetUserId();
         if (userId == null)
         {
-            return Unauthorized(new { Message = "Token inválido" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
         //? Obtener los roles
         var roles = User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
-
         userDto.Roles = roles;
-        foreach (var role in userDto.Roles)
-        {
-            Console.WriteLine(role);
-        }
 
-        var result = await _userService.UpdateLoggedUser(int.Parse(userId), userDto, userDto.ProfilePic);
+        var result = await _userService.UpdateLoggedUser(userId.Value, userDto, userDto.ProfilePic);
         
         if (!result.Success)
         {
@@ -104,7 +122,11 @@ public class UserController : ControllerBase
         
         if (!result.Success)
         {
-            return NotFound(new { Message = result.ErrorMessage });
+            if (result.ErrorMessage?.Contains("no encontrado") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
         }
         
         return Ok(new { Message = "Usuario eliminado correctamente" });
@@ -114,20 +136,19 @@ public class UserController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdatePassword([FromBody] UserUpdatePasswordDto userUpdatePasswordDto)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = GetUserId();
         if (userId == null)
         {
-            return Unauthorized(new { Message = "Usuario no autenticado" });
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
         }
 
-        //? Validar que la nueva contraseña sea diferente a la actual
-        var validation = _authService.ValidatePassword(userUpdatePasswordDto.NewPassword);
-        if (validation != "Password is valid")
-        {
-            return BadRequest(new { Message = validation });
-        }
-
-        var result = await _userService.UpdatePassword(int.Parse(userId), userUpdatePasswordDto);
+        var result = await _userService.UpdatePassword(userId.Value, userUpdatePasswordDto);
+        
         if (!result.Success)
         {
             return BadRequest(new { Message = result.ErrorMessage });

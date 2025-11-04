@@ -1,0 +1,90 @@
+using InmobiliariaMrAPI.Common;
+using InmobiliariaMrAPI.DTOs;
+using InmobiliariaMrAPI.Models.Inmueble;
+using InmobiliariaMrAPI.Repositories;
+
+namespace InmobiliariaMrAPI.Services;
+
+public class PagoService : IPagoService
+{
+    private readonly IPagosRepository _pagosRepository;
+    private readonly IPropietarioRepository _propietarioRepository;
+
+    public PagoService(IPagosRepository pagosRepository, IPropietarioRepository propietarioRepository)
+    {
+        _pagosRepository = pagosRepository;
+        _propietarioRepository = propietarioRepository;
+    }
+
+    public async Task<Result<PagoDto>> GetPagoById(int id, int userId)
+    {
+        //? Obtener propietario desde userId
+        var propietario = await _propietarioRepository.GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<PagoDto>.Fail("Propietario no encontrado");
+        }
+
+        //? Obtener pago
+        var pago = await _pagosRepository.GetPagoById(id);
+        if (pago == null)
+        {
+            return Result<PagoDto>.Fail("Pago no encontrado");
+        }
+
+        //? Verificar que el contrato del pago pertenece al propietario autenticado
+        if (pago.Contrato.PropietarioId != propietario.Id)
+        {
+            return Result<PagoDto>.Fail("No tienes permisos para ver este pago");
+        }
+
+        //? Mapear a DTO
+        var pagoDto = MapPagoToDto(pago);
+        
+        return Result<PagoDto>.Ok(pagoDto);
+    }
+
+    private PagoDto MapPagoToDto(Pagos pago)
+    {
+        return new PagoDto
+        {
+            Id = pago.Id,
+            Amount = pago.Amount,
+            PaymentDate = pago.PaymentDate,
+            PaymentMethod = pago.PaymentMethod.ToString(),
+            CreatedAt = pago.CreatedAt,
+            UpdatedAt = pago.UpdatedAt,
+            Contrato = new ContratoPagoInfoDto
+            {
+                Id = pago.Contrato.Id,
+                StartDate = pago.Contrato.StartDate,
+                EndDate = pago.Contrato.EndDate,
+                TotalPrice = pago.Contrato.TotalPrice,
+                MonthlyPrice = pago.Contrato.MonthlyPrice,
+                Status = pago.Contrato.Status.ToString(),
+                Inmueble = new InmuebleInfoDto
+                {
+                    Id = pago.Contrato.Inmueble.Id,
+                    Title = pago.Contrato.Inmueble.Title,
+                    Address = pago.Contrato.Inmueble.Address,
+                    Latitude = pago.Contrato.Inmueble.Latitude,
+                    Longitude = pago.Contrato.Inmueble.Longitude,
+                    Rooms = pago.Contrato.Inmueble.Rooms,
+                    Price = pago.Contrato.Inmueble.Price,
+                    MaxGuests = pago.Contrato.Inmueble.MaxGuests,
+                    Available = pago.Contrato.Inmueble.Available
+                }
+            },
+            Inquilino = new InquilinoPagoInfoDto
+            {
+                Id = pago.Inquilino.Id,
+                Name = pago.Inquilino.Name,
+                LastName = pago.Inquilino.LastName,
+                DocumentNumber = pago.Inquilino.DocumentNumber,
+                Phone = pago.Inquilino.Phone,
+                Email = pago.Inquilino.Email
+            }
+        };
+    }
+}
+

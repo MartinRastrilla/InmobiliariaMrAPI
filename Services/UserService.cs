@@ -19,9 +19,43 @@ public class UserService : IUserService
         _fileService = fileService;
     }
 
-    public async Task<IEnumerable<Models.User.User>> GetAllUsers()
+    public async Task<Result<IEnumerable<UserDto>>> GetAllUsers()
     {
-        return await _userRepository.GetAllUsers();
+        var users = await _userRepository.GetAllUsers();
+        
+        if (users == null || !users.Any())
+        {
+            return Result<IEnumerable<UserDto>>.Fail("No se encontraron usuarios");
+        }
+
+        var usersDto = new List<UserDto>();
+        foreach (var user in users)
+        {
+            var roles = await _roleRepository.GetRolesByUserId(user.Id);
+            var userDto = new UserDto
+            {
+                Name = user.Name,
+                LastName = user.LastName,
+                Email = user.Email,
+                ProfilePicRoute = user.ProfilePicRoute,
+                Roles = roles.Select(r => r.Name).ToList()
+            };
+            
+            // Si tiene rol de Propietario, agregar información adicional
+            if (roles.Any(r => r.Name == "Propietario"))
+            {
+                var propietario = await _propietarioRepository.GetPropietarioByUserId(user.Id);
+                if (propietario != null)
+                {
+                    userDto.Phone = propietario.Phone;
+                    userDto.DocumentNumber = propietario.DocumentNumber;
+                }
+            }
+            
+            usersDto.Add(userDto);
+        }
+        
+        return Result<IEnumerable<UserDto>>.Ok(usersDto);
     }
 
     public async Task<Result<UserDto>> GetUserById(int id)
@@ -39,7 +73,7 @@ public class UserService : IUserService
             var propietario = await _propietarioRepository.GetPropietarioByUserId(user.Id);
             var userDto = new UserDto()
             {
-                Name = propietario.Name,
+                Name = propietario!.Name,
                 LastName = propietario.LastName,
                 Email = propietario.Email,
                 ProfilePicRoute = user.ProfilePicRoute,
@@ -165,22 +199,20 @@ public class UserService : IUserService
             return Result<UserDto>.Fail("Contraseña actual incorrecta");
         }
 
-        //? Obtener usuario actual
-        var userCurrent = await _userRepository.GetUserById(userId);
-        if (userCurrent == null)
+        // Validar que la nueva contraseña sea diferente a la actual
+        if (BCrypt.Net.BCrypt.Verify(userUpdatePasswordDto.NewPassword, user.Password))
         {
-            return Result<UserDto>.Fail("Usuario no encontrado");
+            return Result<UserDto>.Fail("La nueva contraseña debe ser diferente a la actual");
         }
 
-        //? Validar que la contraseña actual sea correcta
-        if (!BCrypt.Net.BCrypt.Verify(userUpdatePasswordDto.CurrentPassword, userCurrent.Password))
+        // Actualizar contraseña
+        user.Password = BCrypt.Net.BCrypt.HashPassword(userUpdatePasswordDto.NewPassword);
+        var updated = await _userRepository.UpdateUser(user);
+        
+        if (!updated)
         {
-            return Result<UserDto>.Fail("Contraseña actual incorrecta");
+            return Result<UserDto>.Fail("Error al actualizar la contraseña");
         }
-
-        //? Actualizar contraseña
-        userCurrent.Password = BCrypt.Net.BCrypt.HashPassword(userUpdatePasswordDto.NewPassword);
-        await _userRepository.UpdateUser(userCurrent);
 
         var userUpdatedResult = await GetUserById(userId);
         return userUpdatedResult;

@@ -10,6 +10,6 @@ public interface IInmuebleService
     Task<Result<InmuebleDto>> GetInmuebleByTitle(string title, int userId);
     Task<Result<InmuebleDto>> CreateInmuebleForUser(InmuebleDto inmuebleDto, int userId);
     Task<Result<InmuebleDto>> UpdateInmuebleForUser(InmuebleDto inmuebleDto, int userId);
-    Task<Result<bool>> DisableAndEnableInmuebleForUser(int id, int userId);
+    Task<Result<InmuebleDto>> DisableAndEnableInmuebleForUser(int id, int userId);
     Task<Result<bool>> DeleteInmueble(int id);
 }

@@ -83,85 +83,6 @@ public class InmuebleService : IInmuebleService
         return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
 
-    public async Task<InmuebleDto?> CreateInmueble(InmuebleDto inmuebleDto, int propietarioId)
-    {
-        var propietario = await GetPropietarioByUserId(propietarioId);
-        if (propietario == null)
-        {
-            return null;
-        }
-        var inmueble = new Inmueble
-        {
-            Title = inmuebleDto.Title,
-            Address = inmuebleDto.Address,
-            Latitude = inmuebleDto.Latitude,
-            Longitude = inmuebleDto.Longitude,
-            Rooms = inmuebleDto.Rooms,
-            Price = inmuebleDto.Price,
-            MaxGuests = inmuebleDto.MaxGuests,
-            Available = false,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            PropietarioId = propietario.Id,
-        };
-
-        if (inmuebleDto.Images != null && inmuebleDto.Images.Count > 0)
-        {
-            foreach (var image in inmuebleDto.Images)
-            {
-                var ruta = await _fileService.SaveFileAsync(image, "inmuebles");
-                if (string.IsNullOrEmpty(ruta))
-                {
-                    return null;
-                }
-
-                string nombre = Path.GetFileNameWithoutExtension(image.FileName);
-
-                var archivo = new Archivo
-                {
-                    Nombre = nombre,
-                    Ruta = ruta,
-                    Fecha = DateTime.UtcNow,
-                };
-                archivo = await _archivoRepository.CreateArchivo(archivo);
-                if (archivo == null)
-                {
-                    return null;
-                }
-                await _inmuebleRepository.LinkArchivoToInmueble(inmueble.Id, archivo.Id);
-            }
-        }
-        inmueble = await _inmuebleRepository.CreateInmueble(inmueble);
-        return await MapInmuebleToDto(inmueble);
-    }
-
-    public async Task<bool> UpdateInmueble(InmuebleDto inmuebleDto, int propietarioId)
-    {
-        var propietario = await GetPropietarioByUserId(propietarioId);
-        if (propietario == null)
-        {
-            return false;
-        }
-        var inmueble = await _inmuebleRepository.GetInmuebleById(inmuebleDto.Id);
-        if (inmueble == null)
-        {
-            return false;
-        }
-        if (inmueble.PropietarioId != propietario.Id)
-        {
-            return false;
-        }
-        inmueble.Title = inmuebleDto.Title ?? inmueble.Title;
-        inmueble.Address = inmuebleDto.Address ?? inmueble.Address;
-        inmueble.Latitude = inmuebleDto.Latitude ?? inmueble.Latitude;
-        inmueble.Longitude = inmuebleDto.Longitude ?? inmueble.Longitude;
-        inmueble.Rooms = inmuebleDto.Rooms > 0 ? inmuebleDto.Rooms : inmueble.Rooms;
-        inmueble.Price = inmuebleDto.Price > 0 ? inmuebleDto.Price : inmueble.Price;
-        inmueble.MaxGuests = inmuebleDto.MaxGuests > 0 ? inmuebleDto.MaxGuests : inmueble.MaxGuests;
-        inmueble.Available = inmuebleDto.Available;
-        inmueble.UpdatedAt = DateTime.UtcNow;
-        return await _inmuebleRepository.UpdateInmueble(inmueble);
-    }
 
     public async Task<Result<bool>> DeleteInmueble(int id)
     {
@@ -299,30 +220,31 @@ public class InmuebleService : IInmuebleService
         return Result<IEnumerable<InmuebleDto>>.Ok(inmueblesDto);
     }
 
-    public async Task<Result<bool>> DisableAndEnableInmuebleForUser(int id, int userId)
+    public async Task<Result<InmuebleDto>> DisableAndEnableInmuebleForUser(int id, int userId)
     {
         var propietario = await GetPropietarioByUserId(userId);
         if (propietario == null)
         {
-            return Result<bool>.Fail("Propietario no encontrado");
+            return Result<InmuebleDto>.Fail("Propietario no encontrado");
         }
         var inmueble = await _inmuebleRepository.GetInmuebleById(id);
         if (inmueble == null)
         {
-            return Result<bool>.Fail("Inmueble no encontrado");
+            return Result<InmuebleDto>.Fail("Inmueble no encontrado");
         }
 
         if (inmueble.PropietarioId != propietario.Id)
         {
-            return Result<bool>.Fail("No tienes permisos para habilitar este inmueble");
+            return Result<InmuebleDto>.Fail("No tienes permisos para modificar este inmueble");
         }
         inmueble.Available = !inmueble.Available;
+        inmueble.UpdatedAt = DateTime.UtcNow;
         var updated = await _inmuebleRepository.UpdateInmueble(inmueble);
         if (!updated)
         {
-            return Result<bool>.Fail("Error al actualizar el inmueble");
+            return Result<InmuebleDto>.Fail("Error al actualizar el inmueble");
         }
-        return Result<bool>.Ok(updated);
+        return Result<InmuebleDto>.Ok(await MapInmuebleToDto(inmueble));
     }
     private async Task<InmuebleDto> MapInmuebleToDto(Inmueble inmueble)
     {
