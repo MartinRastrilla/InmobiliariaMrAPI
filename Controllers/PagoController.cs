@@ -51,5 +51,30 @@ public class PagoController : ControllerBase
         
         return Ok(result.Data);
     }
+
+    [HttpGet("contrato/{contratoId}")]
+    [Authorize]
+    public async Task<IActionResult> GetPagosByContratoId(int contratoId)
+    {
+        var userId = GetUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "Token inválido o usuario no autenticado" });
+        }
+
+        var result = await _pagoService.GetPagosByContratoId(contratoId, userId.Value);
+        
+        if (!result.Success)
+        {
+            if (result.ErrorMessage?.Contains("no encontrado") == true || 
+                result.ErrorMessage?.Contains("permisos") == true)
+            {
+                return NotFound(new { Message = result.ErrorMessage });
+            }
+            return BadRequest(new { Message = result.ErrorMessage });
+        }
+        
+        return Ok(result.Data);
+    }
 }
 

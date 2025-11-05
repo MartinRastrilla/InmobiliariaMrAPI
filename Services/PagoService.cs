@@ -9,11 +9,13 @@ public class PagoService : IPagoService
 {
     private readonly IPagosRepository _pagosRepository;
     private readonly IPropietarioRepository _propietarioRepository;
+    private readonly IContratoRepository _contratoRepository;
 
-    public PagoService(IPagosRepository pagosRepository, IPropietarioRepository propietarioRepository)
+    public PagoService(IPagosRepository pagosRepository, IPropietarioRepository propietarioRepository, IContratoRepository contratoRepository)
     {
         _pagosRepository = pagosRepository;
         _propietarioRepository = propietarioRepository;
+        _contratoRepository = contratoRepository;
     }
 
     public async Task<Result<PagoDto>> GetPagoById(int id, int userId)
@@ -42,6 +44,41 @@ public class PagoService : IPagoService
         var pagoDto = MapPagoToDto(pago);
         
         return Result<PagoDto>.Ok(pagoDto);
+    }
+
+    public async Task<Result<IEnumerable<PagoDto>>> GetPagosByContratoId(int contratoId, int userId)
+    {
+        //? Obtener propietario desde userId
+        var propietario = await _propietarioRepository.GetPropietarioByUserId(userId);
+        if (propietario == null)
+        {
+            return Result<IEnumerable<PagoDto>>.Fail("Propietario no encontrado");
+        }
+
+        //? Verificar que el contrato existe
+        var contrato = await _contratoRepository.GetContratoById(contratoId);
+        if (contrato == null)
+        {
+            return Result<IEnumerable<PagoDto>>.Fail("Contrato no encontrado");
+        }
+
+        //? Verificar que el contrato pertenece al propietario autenticado
+        if (contrato.PropietarioId != propietario.Id)
+        {
+            return Result<IEnumerable<PagoDto>>.Fail("No tienes permisos para ver los pagos de este contrato");
+        }
+
+        //? Obtener pagos del contrato
+        var pagos = await _pagosRepository.GetPagosByContratoId(contratoId);
+        if (pagos == null || !pagos.Any())
+        {
+            return Result<IEnumerable<PagoDto>>.Fail("No se encontraron pagos para este contrato");
+        }
+
+        //? Mapear a DTOs
+        var pagosDto = pagos.Select(p => MapPagoToDto(p)).ToList();
+        
+        return Result<IEnumerable<PagoDto>>.Ok(pagosDto);
     }
 
     private PagoDto MapPagoToDto(Pagos pago)
